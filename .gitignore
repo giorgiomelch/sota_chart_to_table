@@ -2,10 +2,8 @@
 *.png
 *.json
 *.txt
-ChartQA Dataset/
+*.html
 
 .vscode/
 
 __pycache__/
-
-html_reports/
