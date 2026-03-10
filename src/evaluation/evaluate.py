@@ -1,6 +1,7 @@
 import statistics
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from pathlib import Path
 
 from src.evaluation.metric import table_datapoints_precision_recall
@@ -11,26 +12,21 @@ from src.utils.annotation2markdown import (
     json_to_markdown_box
 )
 
-# --- FUNZIONI DI SUPPORTO ---
+# --- CONFIGURAZIONE ---
+PREDICTIONS_ROOT = Path("outputs/predictions")
+GROUNDTRUTH_ROOT = Path("data/groundtruth")
+IMAGES_ROOT = Path("data/images")
+METRICS_OUTPUT = Path("outputs/metrics")
 
-def safe_mean(values_list):
-    """Restituisce la media di una lista, o 0.0 se la lista è vuota per evitare errori."""
-    return statistics.mean(values_list) if values_list else 0.0
+# --- UTILS ---
 
-def load_prediction(pred_json_path, pred_txt_path, markdown_fn):
-    """Carica la predizione (Gemini o DePlot) e garantisce un formato [originale, trasposta]."""
-    if pred_json_path.exists():
-        result = markdown_fn(pred_json_path)
-        return list(result) if isinstance(result, tuple) else [result, result]
-    
-    if pred_txt_path.exists():
-        content = pred_txt_path.read_text(encoding='utf-8')
-        return [content, content]
-    
-    return None
+def get_available_models():
+    """Rileva dinamicamente i modelli presenti in ordine alfabetico."""
+    if not PREDICTIONS_ROOT.exists():
+        return []
+    return sorted([d.name for d in PREDICTIONS_ROOT.iterdir() if d.is_dir()])
 
 def get_markdown_formatter(chart_type):
-    """Mappa il tipo di grafico alla funzione di parsing JSON appropriata."""
     conversion_map = {
         "scatter": json_to_markdown_scatter,
         "errorpoint": json_to_markdown_errorpoint,
@@ -38,193 +34,131 @@ def get_markdown_formatter(chart_type):
     }
     return conversion_map.get(chart_type, json_to_markdown)
 
-def salva_grafico_f1(dati_f1, nome_dataset, directory_output="outputs/metrics"):
-    """
-    Genera un grafico a barre raggruppate per i punteggi F1 e lo salva su disco.
-    """
-    if not dati_f1:
-        print(f"Nessun dato disponibile per generare il grafico di {nome_dataset}.")
-        return
-
-    out_dir = Path(directory_output)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    tipi_grafico = list(dati_f1.keys())
-    modelli = list(next(iter(dati_f1.values())).keys())
-
-    x = np.arange(len(tipi_grafico))
-    width = 0.35
-    moltiplicatore = 0
-
-    fig, ax = plt.subplots(figsize=(10, 6), layout='constrained')
-
-    for modello in modelli:
-        punteggi = [dati_f1[tg].get(modello, 0) for tg in tipi_grafico]
-        offset = width * moltiplicatore
-        rects = ax.bar(x + offset, punteggi, width, label=modello)
-        ax.bar_label(rects, padding=3, fmt='%.1f')
-        moltiplicatore += 1
-
-    ax.set_ylabel('F1 Score (%)')
-    ax.set_title(f'Confronto F1 Score - Dataset {nome_dataset.upper()}')
-    ax.set_xticks(x + width / 2, tipi_grafico)
-    ax.legend(loc='upper left', ncols=len(modelli))
-    ax.set_ylim(0, 100)
-
-    percorso_salvataggio = out_dir / f"f1_score_{nome_dataset.lower()}.png"
-    plt.savefig(percorso_salvataggio, dpi=300)
-    plt.close()
+def load_prediction(pred_path, markdown_fn):
+    """Carica la predizione supportando JSON (VLM) e TXT (DePlot)."""
+    if not pred_path.exists():
+        return None
     
-    print(f"Grafico salvato in: {percorso_salvataggio}")
+    if pred_path.suffix == '.json':
+        try:
+            result = markdown_fn(pred_path)
+            return list(result) if isinstance(result, tuple) else [result, result]
+        except Exception:
+            return None
+    
+    if pred_path.suffix == '.txt':
+        content = pred_path.read_text(encoding='utf-8')
+        return [content, content]
+    
+    return None
 
+# --- CORE CALCULATION ---
 
-# --- FUNZIONI DI CALCOLO METRICHE ---
+def compute_metrics_for_class(model_name, dataset_type, chart_class):
+    """Calcola la media F1 per una specifica classe di grafico e modello."""
+    pred_dir = PREDICTIONS_ROOT / model_name / dataset_type / chart_class
+    gt_dir = GROUNDTRUTH_ROOT / dataset_type / chart_class
+    
+    if not pred_dir.exists() or not gt_dir.exists():
+        return 0.0
 
-def compute_pmc_metrics(path_to_preds, path_to_gt):
-    results_by_diff = {}
-    global_accum = {'p': [], 'r': [], 'f1': []}
+    markdown_fn = get_markdown_formatter(chart_class)
+    f1_scores = []
 
-    for diff_class in path_to_gt.iterdir():
-        if not diff_class.is_dir(): continue
-            
-        class_name = diff_class.name
-        results_by_diff[class_name] = {'p': [], 'r': [], 'f1': []}
+    # Scansione ricorsiva per supportare la struttura di PMC (con sottocartelle difficulty)
+    for gt_file in gt_dir.rglob("*.json"):
+        # Ricostruiamo il path della predizione relativo alla classe
+        rel_path = gt_file.relative_to(gt_dir)
+        pred_file = pred_dir / rel_path
         
-        for gt_file in diff_class.glob("*.json"):
-            pred_path_json = path_to_preds / class_name / gt_file.name
-            pred_path_txt = pred_path_json.with_suffix('.txt')
+        # Prova con .json, se non esiste prova con .txt
+        if not pred_file.exists():
+            pred_file = pred_file.with_suffix('.txt')
             
-            pred_table = load_prediction(pred_path_json, pred_path_txt, json_to_markdown)
-            if not pred_table: continue
-
-            result_gt = json_to_markdown(gt_file)
-            gt_table = list(result_gt) if isinstance(result_gt, tuple) else [result_gt, result_gt]
-            
-            metrics = table_datapoints_precision_recall(
-                [[pred_table[0]], [pred_table[1]]], 
-                [gt_table[0], gt_table[1]]
-            )
-
-            results_by_diff[class_name]['p'].append(metrics['table_datapoints_precision'])
-            results_by_diff[class_name]['r'].append(metrics['table_datapoints_recall'])
-            results_by_diff[class_name]['f1'].append(metrics['table_datapoints_f1'])
-
-            global_accum['p'].append(metrics['table_datapoints_precision'])
-            global_accum['r'].append(metrics['table_datapoints_recall'])
-            global_accum['f1'].append(metrics['table_datapoints_f1'])
-
-    final_metrics = {'classes': {}, 'global': {}}
-    for cn, m in results_by_diff.items():
-        if m['f1']:
-            final_metrics['classes'][cn] = {
-                'p': safe_mean(m['p']), 'r': safe_mean(m['r']), 'f1': safe_mean(m['f1'])
-            }
-
-    if global_accum['f1']:
-        final_metrics['global'] = {
-            'p': safe_mean(global_accum['p']), 'r': safe_mean(global_accum['r']), 'f1': safe_mean(global_accum['f1'])
-        }
-    return final_metrics
-
-
-def compute_synthetic_metrics(path_to_preds, path_to_gt, chart_type):
-    markdown_fn = get_markdown_formatter(chart_type)
-    global_accum = {'p': [], 'r': [], 'f1': []}
-
-    for gt_file in path_to_gt.glob("*.json"):
-        pred_path_json = path_to_preds / gt_file.name
-        pred_path_txt = pred_path_json.with_suffix('.txt')
-        
-        pred_table = load_prediction(pred_path_json, pred_path_txt, markdown_fn)
-        if not pred_table: continue
+        pred_table = load_prediction(pred_file, markdown_fn)
+        if not pred_table:
+            continue
 
         result_gt = markdown_fn(gt_file)
         gt_table = list(result_gt) if isinstance(result_gt, tuple) else [result_gt, result_gt]
-        
         metrics = table_datapoints_precision_recall(
             [[pred_table[0]], [pred_table[1]]], 
             [gt_table[0], gt_table[1]]
         )
+        '''dacanc
+        print(pred_table[0])
+        print(pred_table[1])
+        print(gt_table[0])
+        print(gt_table[1])
+        print(metrics['table_datapoints_f1'])
+        print(crusha il programma)
+        '''
+        f1_scores.append(metrics['table_datapoints_f1'])
+    return statistics.mean(f1_scores) if f1_scores else 0.0
 
-        global_accum['p'].append(metrics['table_datapoints_precision'])
-        global_accum['r'].append(metrics['table_datapoints_recall'])
-        global_accum['f1'].append(metrics['table_datapoints_f1'])
+# --- VISUALIZATION ---
 
-    if not global_accum['f1']:
-        return None
+def salva_grafico_comparativo(dati_f1, dataset_label):
+    """Genera un grafico a barre raggruppate per tutti i modelli rilevati."""
+    if not dati_f1: return
 
-    return {
-        'p': safe_mean(global_accum['p']),
-        'r': safe_mean(global_accum['r']),
-        'f1': safe_mean(global_accum['f1'])
-    }
+    METRICS_OUTPUT.mkdir(parents=True, exist_ok=True)
+    
+    chart_classes = sorted(dati_f1.keys())
+    model_names = sorted(next(iter(dati_f1.values())).keys())
 
+    x = np.arange(len(chart_classes))
+    width = 0.8 / len(model_names) # Spaziatura dinamica in base al numero di modelli
+    
+    fig, ax = plt.subplots(figsize=(12, 7), layout='constrained')
 
-# --- ORCHESTRATORE ---
+    for i, model in enumerate(model_names):
+        scores = [dati_f1[cc].get(model, 0.0) for cc in chart_classes]
+        offset = (i - len(model_names)/2 + 0.5) * width
+        rects = ax.bar(x + offset, scores, width, label=model)
+        ax.bar_label(rects, padding=3, fmt='%.1f', fontsize=8)
+
+    ax.set_ylabel('F1 Score (%)')
+    ax.set_title(f'Benchmark Risultati - Dataset {dataset_label.upper()}')
+    ax.set_xticks(x)
+    ax.set_xticklabels(chart_classes, rotation=45, ha='right')
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    ax.set_ylim(0, 110)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    output_path = METRICS_OUTPUT / f"f1_comparison_{dataset_label.lower()}.png"
+    plt.savefig(output_path, dpi=300)
+    plt.close()
+    print(f"Grafico salvato: {output_path}")
+
+# --- MAIN ---
 
 def run_evaluation():
-    """Funzione principale che esegue l'intera pipeline di valutazione."""
-    
-    # 1. Analisi PMC
-    print("\nInizio analisi dataset PMC...")
-    pmc_data_dir = Path("data/images/pmc/")
-    gt_pmc = Path("data/groundtruth/pmc/")
-    pmc_models = {
-        "Gemini": "outputs/predictions/Gemini/pmc/", 
-        "DePlot": "outputs/predictions/DePlot/pmc/"
-    }
+    models = get_available_models()
+    if not models:
+        print("Errore: Nessun modello trovato in outputs/predictions")
+        return
 
-    if pmc_data_dir.exists():
-        pmc_charts = sorted([d.name for d in pmc_data_dir.iterdir() if d.is_dir()])
-        dati_f1_pmc = {chart: {} for chart in pmc_charts}
+    print(f"Modelli rilevati per il benchmark: {', '.join(models)}")
 
-        for model_name, pred_base in pmc_models.items():
-            for chart in pmc_charts:
-                percorso_pred = Path(pred_base) / chart
-                percorso_gt = gt_pmc / chart
-                
-                if percorso_pred.exists() and percorso_gt.exists():
-                    res = compute_pmc_metrics(percorso_pred, percorso_gt)
-                    f1_score = res.get('global', {}).get('f1', 0.0) if res else 0.0
-                else:
-                    f1_score = 0.0
-                    
-                dati_f1_pmc[chart][model_name] = f1_score
+    for dataset_type in ["pmc", "synthetic"]:
+        print(f"\nAnalisi dataset: {dataset_type.upper()}...")
+        
+        img_base_dir = IMAGES_ROOT / dataset_type
+        if not img_base_dir.exists():
+            print(f"Skip: Directory {img_base_dir} non trovata.")
+            continue
 
-        salva_grafico_f1(dati_f1_pmc, "PMC")
-    else:
-        print(f"Cartella dati PMC non trovata in {pmc_data_dir}")
+        chart_classes = sorted([d.name for d in img_base_dir.iterdir() if d.is_dir()])
+        results_f1 = {cc: {} for cc in chart_classes}
 
-    # 2. Analisi SINTETICI
-    print("\nInizio analisi dataset Synthetic...\n")
-    synth_data_dir = Path("data/images/synthetic/")
-    gt_synth = Path("data/groundtruth/synthetic/")
-    synth_models = {
-        "Gemini": "outputs/predictions/Gemini/synthetic/", 
-        "DePlot": "outputs/predictions/DePlot/synthetic/"
-    }
+        for chart_class in chart_classes:
+            for model in models:
+                f1_val = compute_metrics_for_class(model, dataset_type, chart_class)
+                print(f"{chart_class} {model} f1: {f1_val}")
+                results_f1[chart_class][model] = f1_val
 
-    if synth_data_dir.exists():
-        synth_charts = sorted([d.name for d in synth_data_dir.iterdir() if d.is_dir()])
-        dati_f1_synth = {chart: {} for chart in synth_charts}
-
-        for model_name, pred_base in synth_models.items():
-            for chart in synth_charts:
-                percorso_pred = Path(pred_base) / chart
-                percorso_gt = gt_synth / chart
-                
-                if percorso_pred.exists() and percorso_gt.exists():
-                    res = compute_synthetic_metrics(percorso_pred, percorso_gt, chart)
-                    f1_score = res.get('f1', 0.0) if res else 0.0
-                else:
-                    f1_score = 0.0
-                    
-                dati_f1_synth[chart][model_name] = f1_score
-
-        salva_grafico_f1(dati_f1_synth, "Synthetic")
-    else:
-        print(f"Cartella dati Sintetici non trovata in {synth_data_dir}")
-
+        salva_grafico_comparativo(results_f1, dataset_type)
 
 if __name__ == "__main__":
     run_evaluation()
