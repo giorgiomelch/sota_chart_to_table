@@ -1,17 +1,15 @@
 """
 Configurazione centralizzata dei path per il benchmark sota_chart_to_table.
 
-Funzionamento:
-- In locale: tutti i path sono relativi alla root del progetto.
-- Su Google Colab: il progetto è clonato in /content/sota_chart_to_table.
-  I pesi e gli output (predictions, metrics, reports) vengono salvati su
-  Google Drive impostando la variabile d'ambiente DRIVE_BASE_DIR prima di
-  eseguire qualsiasi script, oppure passando --drive-path a run_benchmark.py.
+Variabili d'ambiente:
+  DRIVE_BASE_DIR   Path Drive per pesi e output (predictions, metrics, reports).
+  DATA_DIR         Path della cartella data/ con images/ e groundtruth/.
+                   Se non impostata, usa PROJECT_ROOT/data.
 
 Esempio Colab:
-    import os
-    os.environ["DRIVE_BASE_DIR"] = "/content/drive/MyDrive/MioProgetto"
-    # oppure: python run_benchmark.py --drive-path /content/drive/MyDrive/MioProgetto
+    python run_benchmark.py \\
+        --drive-path /content/drive/MyDrive/MioProgetto \\
+        --data-path  /content/drive/MyDrive/Progetti_GitHub/data_ChartToTable
 """
 
 import os
@@ -27,15 +25,19 @@ else:
     # Due livelli sopra src/config.py
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# --- Drive base (opzionale) ---
+# --- Drive base per output e pesi (opzionale) ---
 
 _drive_env = os.environ.get("DRIVE_BASE_DIR")
 DRIVE_BASE_DIR: Path | None = Path(_drive_env) if _drive_env else None
 
-# --- Path di input (sempre locali al progetto) ---
+# --- Path dati di input ---
+# DATA_DIR può puntare a una cartella su Drive che contiene images/ e groundtruth/
 
-IMAGES_DIR = PROJECT_ROOT / "data" / "images"
-GROUNDTRUTH_DIR = PROJECT_ROOT / "data" / "groundtruth"
+_data_env = os.environ.get("DATA_DIR")
+_data_base: Path = Path(_data_env) if _data_env else PROJECT_ROOT / "data"
+
+IMAGES_DIR = _data_base / "images"
+GROUNDTRUTH_DIR = _data_base / "groundtruth"
 
 # --- Path di output e pesi (su Drive se disponibile, altrimenti locali) ---
 

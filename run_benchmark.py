@@ -59,6 +59,14 @@ def parse_args():
              "Equivalente a impostare la variabile d'ambiente DRIVE_BASE_DIR.",
     )
     parser.add_argument(
+        "--data-path",
+        dest="data_path",
+        default=None,
+        help="Path della cartella data/ contenente images/ e groundtruth/. "
+             "Utile su Colab quando i dati sono su Drive. "
+             "Equivalente a impostare la variabile d'ambiente DATA_DIR.",
+    )
+    parser.add_argument(
         "--evaluate",
         action="store_true",
         help="Esegui la valutazione RMS dopo le predizioni.",
@@ -96,10 +104,13 @@ def resolve_datasets(dataset_arg: str) -> list[str]:
 def main():
     args = parse_args()
 
-    # DRIVE_BASE_DIR deve essere settato PRIMA di importare src.config
+    # Queste env var devono essere settate PRIMA di importare src.config
     if args.drive_path:
         os.environ["DRIVE_BASE_DIR"] = args.drive_path
-        print(f"Drive path impostato: {args.drive_path}")
+        print(f"Drive path (output/pesi): {args.drive_path}")
+    if args.data_path:
+        os.environ["DATA_DIR"] = args.data_path
+        print(f"Data path (immagini/GT):  {args.data_path}")
 
     # Import differiti: src.config legge DRIVE_BASE_DIR al momento dell'import
     from src.config import IMAGES_DIR
