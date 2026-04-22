@@ -10,6 +10,7 @@ Display values are always raw (un-normalised); metric values use normalised data
 """
 
 import base64
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -119,18 +120,25 @@ def _build_raw_lookup(raw_data: dict | None, chart_type: str) -> dict:
     lookup: dict = {}
     for dp in raw_data.get("data_points", []):
         series = str(dp.get("series_name", ""))
-        if chart_type in ("categorical_y", "bubble_y"):
+        if chart_type == "bubble_y":
+            col = str(dp.get("y_value", ""))
+            # 3-tuple: (primary, z, w) — distinguished from scatter's 2-tuple
+            val = (dp.get("x_value"), dp.get("z_value"), dp.get("w_value"))
+        elif chart_type == "bubble_x":
+            col = str(dp.get("x_value", ""))
+            val = (dp.get("y_value"), dp.get("z_value"), dp.get("w_value"))
+        elif chart_type == "categorical_y":
             col = str(dp.get("y_value", ""))
             val = dp.get("x_value", "")
         elif chart_type == "scatter":
             col = "__scatter__"
-            # Store a tuple so _fmt_raw can build a ScatterVal
+            # Store a 2-tuple so _fmt_raw can build a ScatterVal
             val = (dp.get("x_value"), dp.get("y_value"))
-        else:  # categorical_x, bubble_x
+        else:  # categorical_x
             col = str(dp.get("x_value", ""))
             val = dp.get("y_value", "")
         key = (series, col)
-        if key not in lookup:   # keep first match for scatter duplicates
+        if key not in lookup:   # keep first match for duplicate keys
             lookup[key] = val
     return lookup
 
@@ -140,16 +148,39 @@ def _fmt_raw(m: Mapping, lookup: dict) -> str:
     Return a display string for m.val using the raw lookup when available.
     Falls back to _fmt(m.val) if the key is not found.
     """
+    # Scatter Mappings all share col="__scatter__"; the lookup cannot
+    # distinguish between individual points — use the parsed value directly.
+    if m.col == "__scatter__":
+        return _fmt(m.val)
     raw = lookup.get((m.row, m.col))
     if raw is None:
         return _fmt(m.val)
-    # Scatter stores (x_raw, y_raw) tuple
     if isinstance(raw, tuple):
-        x, y = raw
+        if len(raw) == 2:
+            # Scatter: (x_raw, y_raw)
+            x, y = raw
+            try:
+                return f"({float(x):.4g}, {float(y):.4g})"
+            except (TypeError, ValueError):
+                return f"({x}, {y})"
+        # Bubble: (primary_raw, z_raw, w_raw)
+        primary, z, w = raw
+        parts: list[str] = []
         try:
-            return f"({float(x):.4g}, {float(y):.4g})"
+            parts.append(f"{float(primary):.4g}")
         except (TypeError, ValueError):
-            return f"({x}, {y})"
+            parts.append(str(primary))
+        if z is not None:
+            try:
+                parts.append(f"z={float(z):.4g}")
+            except (TypeError, ValueError):
+                parts.append(f"z={z}")
+        if w is not None:
+            try:
+                parts.append(f"w={float(w):.4g}")
+            except (TypeError, ValueError):
+                parts.append(f"w={w}")
+        return " ".join(parts)
     return _fmt(raw)
 
 
@@ -339,7 +370,7 @@ def genera_sezione_immagine(
         with open(gt_json_path, "r", encoding="utf-8") as fh:
             gt_data_raw = json.load(fh)
         basi_gt = estrai_basi(gt_data_raw)
-        gt_data_norm = normalizza_valori(dict(gt_data_raw), basi_gt)
+        gt_data_norm = normalizza_valori(copy.deepcopy(gt_data_raw), basi_gt)
 
     blocks: list[str] = []
 
@@ -414,7 +445,7 @@ def generate_reports() -> None:
         for m in model_names
     )
 
-    for dataset_type in ["PMCharts", "synthetic"]:
+    for dataset_type in ["arXiv", "PMCharts", "synthetic"]:
         base_img_dir = IMAGES_ROOT / dataset_type
         if not base_img_dir.exists():
             continue
