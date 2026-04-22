@@ -63,11 +63,11 @@ def pred_dir(dir, model, processor, device):
                 continue
             process_image(image_path, file_output, model, processor, device)
 
-def DePlot_predict():
+def DePlot_predict(dataset):
     modello, proc, disp = load_model_and_processor()
-    pred_dir(IMAGES_DIR / "PMCharts", modello, proc, disp)
-    pred_dir(IMAGES_DIR / "synthetic", modello, proc, disp)
+    pred_dir(IMAGES_DIR / dataset, modello, proc, disp)
+
     
 
 if __name__ == "__main__":
-    DePlot_predict()
+    DePlot_predict("PMCharts")
