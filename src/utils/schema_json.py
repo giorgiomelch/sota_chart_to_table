@@ -4,12 +4,11 @@ AREA_LINE_BAR_HISTOGRAM_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
-            "x_axis_label": {"type": ["string", "null"]},
-            "y_axis_label": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "x_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "y_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "categorical_axis": {
-                "type": ["string", "null"],
-                "enum": ["x", "y", None]
+                "anyOf": [{"type": "string", "enum": ["x", "y"]}, {"type": "null"}]
             },
             "data_points": {
                 "type": "array",
@@ -18,14 +17,20 @@ AREA_LINE_BAR_HISTOGRAM_SCHEMA = {
                     "additionalProperties": False,
                     "properties": {
                         "series_name": {"type": "string"},
-                        "x_value": {"type": ["string", "number"]},
-                        "y_value": {"type": ["string", "number"]}
+                        "x_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
+                        "y_value": {"anyOf": [{"type": "string"}, {"type": "number"}]}
                     },
                     "required": ["series_name", "x_value", "y_value"]
                 }
             }
         },
-        "required": ["chart_title", "data_points"]
+        "required": [
+            "chart_title",
+            "x_axis_label",
+            "y_axis_label",
+            "categorical_axis",
+            "data_points"
+        ]
     }
 }
 SCATTER_SCHEMA = {
@@ -34,9 +39,9 @@ SCATTER_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
-            "x_axis_label": {"type": ["string", "null"]},
-            "y_axis_label": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "x_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "y_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "data_points": {
                 "type": "array",
                 "items": {
@@ -44,14 +49,18 @@ SCATTER_SCHEMA = {
                     "additionalProperties": False,
                     "properties": {
                         "series_name": {"type": "string"},
-                        "x_value": {"type": ["number", "string"]},
+                        "x_value": {"anyOf": [{"type": "number"}, {"type": "string"}]},
                         "y_value": {"type": "number"}
                     },
                     "required": ["series_name", "x_value", "y_value"]
                 }
             }
         },
-        "required": ["chart_title", "data_points"]
+        "required": [
+            "chart_title",
+            "x_axis_label",
+            "y_axis_label",
+            "data_points"]
     }
 }
 RADAR_SCHEMA = {
@@ -60,7 +69,7 @@ RADAR_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "data_points": {
                 "type": "array",
                 "items": {
@@ -84,7 +93,7 @@ PIE_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "data_points": {
                 "type": "array",
                 "items": {
@@ -108,12 +117,11 @@ BOX_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
-            "x_axis_label": {"type": ["string", "null"]},
-            "y_axis_label": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "x_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "y_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "categorical_axis": {
-                "type": ["string", "null"],
-                "enum": ["x", "y", None]
+                "anyOf": [{"type": "string", "enum": ["x", "y"]}, {"type": "null"}]
             },
             "data_points": {
                 "type": "array",
@@ -122,25 +130,31 @@ BOX_SCHEMA = {
                     "additionalProperties": False,
                     "properties": {
                         "series_name": {"type": "string"},
-                        "x_value": {"type": ["string", "number"]},
+                        "x_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
                         "y_value": {
                             "type": "object",
                             "additionalProperties": False,
                             "properties": {
-                                "min": {"type": "number"},
-                                "q1": {"type": ["number", "null"]},
-                                "median": {"type": "number"},
-                                "q3": {"type": ["number", "null"]},
-                                "max": {"type": "number"}
+                                "min": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                                "q1": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                                "median": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                                "q3": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                                "max": {"anyOf": [{"type": "number"}, {"type": "null"}]}
                             },
-                            "required": ["min", "median", "max"]
+                            "required": ["min", "q1", "median", "q3", "max"]
                         }
                     },
                     "required": ["series_name", "x_value", "y_value"]
                 }
             }
         },
-        "required": ["chart_title", "data_points"]
+        "required": [
+            "chart_title",
+            "x_axis_label",
+            "y_axis_label",
+            "categorical_axis",
+            "data_points"
+        ]
     }
 }
 ERRORPOINT_SCHEMA = {
@@ -149,12 +163,11 @@ ERRORPOINT_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
-            "x_axis_label": {"type": ["string", "null"]},
-            "y_axis_label": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "x_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "y_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "categorical_axis": {
-                "type": ["string", "null"],
-                "enum": ["x", "y", None]
+                "anyOf": [{"type": "string", "enum": ["x", "y"]}, {"type": "null"}]
             },
             "data_points": {
                 "type": "array",
@@ -163,14 +176,14 @@ ERRORPOINT_SCHEMA = {
                     "additionalProperties": False,
                     "properties": {
                         "series_name": {"type": "string"},
-                        "x_value": {"type": ["string", "number"]},
+                        "x_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
                         "y_value": {
                             "type": "object",
                             "additionalProperties": False,
                             "properties": {
-                                "min": {"type": "number"},
-                                "median": {"type": "number"},
-                                "max": {"type": "number"}
+                                "min": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                                "median": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                                "max": {"anyOf": [{"type": "number"}, {"type": "null"}]}
                             },
                             "required": ["min", "median", "max"]
                         }
@@ -179,7 +192,12 @@ ERRORPOINT_SCHEMA = {
                 }
             }
         },
-        "required": ["chart_title", "data_points"]
+        "required": [
+            "chart_title",
+            "x_axis_label",
+            "y_axis_label",
+            "categorical_axis",
+            "data_points"]
     }
 }
 BUBBLE_SCHEMA = {
@@ -188,12 +206,11 @@ BUBBLE_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
-            "x_axis_label": {"type": ["string", "null"]},
-            "y_axis_label": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "x_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "y_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "categorical_axis": {
-                "type": ["string", "null"],
-                "enum": ["x", "y", None]
+                "anyOf": [{"type": "string", "enum": ["x", "y"]}, {"type": "null"}]
             },
             "data_points": {
                 "type": "array",
@@ -202,16 +219,21 @@ BUBBLE_SCHEMA = {
                     "additionalProperties": False,
                     "properties": {
                         "series_name": {"type": "string"},
-                        "x_value": {"type": ["number", "string"]},
-                        "y_value": {"type": ["number", "string"]},
+                        "x_value": {"anyOf": [{"type": "number"}, {"type": "string"}]},
+                        "y_value": {"anyOf": [{"type": "number"}, {"type": "string"}]},
                         "z_value": {"type": "number"},
-                        "w_value": {"type": ["number", "null"]}
+                        "w_value": {"anyOf": [{"type": "number"}, {"type": "null"}]}
                     },
-                    "required": ["series_name", "x_value", "y_value", "z_value"]
+                    "required": ["series_name", "x_value", "y_value", "z_value", "w_value"]
                 }
             }
         },
-        "required": ["chart_title", "data_points"]
+        "required": [
+            "chart_title",
+            "x_axis_label",
+            "y_axis_label",
+            "categorical_axis",
+            "data_points"]
     }
 }
 HEATMAP_SCHEMA = {
@@ -220,24 +242,28 @@ HEATMAP_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "chart_title": {"type": ["string", "null"]},
-            "x_axis_label": {"type": ["string", "null"]},
-            "y_axis_label": {"type": ["string", "null"]},
+            "chart_title": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "x_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "y_axis_label": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "data_points": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
                     "properties": {
-                        "x_value": {"type": ["string", "number"]},
-                        "y_value": {"type": ["string", "number"]},
+                        "x_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
+                        "y_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
                         "intensity_value": {"type": "number"}
                     },
                     "required": ["x_value", "y_value", "intensity_value"]
                 }
             }
         },
-        "required": ["chart_title", "data_points"]
+        "required": [
+            "chart_title",
+            "x_axis_label",
+            "y_axis_label",
+            "data_points"]
     }
 }
 SCHEMA2CHARTCLASS = {
