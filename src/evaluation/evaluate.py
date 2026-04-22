@@ -27,10 +27,10 @@ def sottrai_valore_base(valore, base):
     if isinstance(valore, (int, float)) and not isinstance(valore, bool):
         return valore - base
     elif isinstance(valore, dict):
-        for chiave, sub_valore in valore.items():
-            if isinstance(sub_valore, (int, float)) and not isinstance(sub_valore, bool):
-                valore[chiave] = sub_valore - base
-        return dict(valore)
+        return {
+            chiave: (sub_valore - base if isinstance(sub_valore, (int, float)) and not isinstance(sub_valore, bool) else sub_valore)
+            for chiave, sub_valore in valore.items()
+        }
     return valore
 
 def estrai_basi(dati_json):
@@ -214,7 +214,12 @@ def compute_metrics_for_class(model_name, dataset_type, chart_class):
         if pred_data is None:
             continue
 
-        result = compute_rms(pred_data, gt_data_norm)
+        try:
+            result = compute_rms(pred_data, gt_data_norm)
+        except Exception as e:
+            print(f"[WARN] compute_rms fallito su {gt_file.name}: {e}")
+            continue
+
         f1_data.append((num_elementi, result['f1'] * 100))
 
     return f1_data
@@ -391,6 +396,43 @@ def salva_grafico_facet_elementi(dati_f1, dataset_label):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Grafico facet salvato con legenda esterna: {output_path}")
+
+def stampa_risultati_f1(dati_f1, dataset_label):
+    if not dati_f1:
+        return
+
+    chart_classes = sorted(dati_f1.keys())
+    model_names = sorted(next(iter(dati_f1.values())).keys())
+
+    col_w = 10
+    label_w = max(20, max(len(cc) for cc in chart_classes + ["Media Globale"]) + 2)
+
+    header = "Classe".ljust(label_w) + "".join(m[:col_w-1].rjust(col_w) for m in model_names)
+    sep = "-" * len(header)
+
+    print(f"\n=== F1 Score — Dataset: {dataset_label.upper()} ===\n")
+    print(header)
+    print(sep)
+
+    global_scores = {m: [] for m in model_names}
+
+    for cc in chart_classes:
+        row = cc.ljust(label_w)
+        for model in model_names:
+            scores = [f1 for _, f1 in dati_f1[cc].get(model, [])]
+            global_scores[model].extend(scores)
+            mean = statistics.mean(scores) if scores else 0.0
+            row += f"{mean:>{col_w}.1f}"
+        print(row)
+
+    print(sep)
+    row = "Media Globale".ljust(label_w)
+    for model in model_names:
+        mean = statistics.mean(global_scores[model]) if global_scores[model] else 0.0
+        row += f"{mean:>{col_w}.1f}"
+    print(row)
+    print()
+
 # --- MAIN ---
 
 def run_evaluation():
@@ -401,7 +443,7 @@ def run_evaluation():
 
     print(f"Modelli rilevati per il benchmark: {', '.join(models)}")
 
-    for dataset_type in ["PMCharts", "synthetic"]:
+    for dataset_type in ["arXiv","PMCharts", "synthetic"]:
         print(f"\nAnalisi dataset: {dataset_type.upper()}...")
         
         img_base_dir = IMAGES_ROOT / dataset_type
@@ -420,6 +462,7 @@ def run_evaluation():
         # Richiama entrambe le funzioni di plotting passando lo stesso dizionario dati
         salva_grafico_comparativo(results_f1, dataset_type)
         salva_grafico_facet_elementi(results_f1, dataset_type)
+        stampa_risultati_f1(results_f1, dataset_type)
 
 if __name__ == "__main__":
     run_evaluation()
