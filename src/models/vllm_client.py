@@ -10,6 +10,7 @@ from google.genai import types
 from openai import OpenAI
 from src.utils.prompts import PROMPT2CHARTCLASS
 from src.utils.schema_json import SCHEMA2CHARTCLASS
+from src.config import PREDICTIONS_DIR
 
 MAX_SIZE = 768
 
@@ -144,7 +145,7 @@ def ask_vllm(provider, model_name, path_to_dir_target):
         print(f"Percorso {path_to_dir_target} non trovato.")
         return
     # Definizione percorso di output basato sul modello
-    output_path = Path(f"outputs/predictions/{model_name}")
+    output_path = PREDICTIONS_DIR / model_name
     
     processor = ChartToTableProcessor(client=client, output_base_path=output_path)
 
