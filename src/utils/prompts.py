@@ -169,11 +169,33 @@ The JSON must strictly adhere to the following standardized structure, which ada
 }
 """
 
+PROMPT_Heatmap = """
+You are an expert data analyst in extracting visual information. 
+Your task is to analyze the provided heatmap image and reconstruct the underlying data table by extracting the exact values or, 
+if not explicitly stated, making the most accurate estimate possible based on the colors.
+
+Return the output EXCLUSIVELY in valid JSON format, without any additional text or markdown formatting outside the JSON.
+The JSON must strictly adhere to the following structure:
+
+{
+    "chart_title": "Main title of the chart (null if absent)",
+    "x_axis_label": "X-axis label (null if absent)",
+    "y_axis_label": "Y-axis label (null if absent)", 
+    "data_points": [
+        {
+        "x_value": "Category or numerical value on the X-axis.",
+        "y_value": "Category or numerical value on the Y-axis.",
+        "cell_value": "Numerical value represented by the number or the color intensity of the cell (null if absent)."
+        }
+    ]
+}
+"""
 
 PROMPT2CHARTCLASS = {
     "area": PROMPT_AreaLineBarHistogram,
     "line": PROMPT_AreaLineBarHistogram,
     "bar": PROMPT_AreaLineBarHistogram,
+    "heatmap": PROMPT_Heatmap,
     "histogram": PROMPT_AreaLineBarHistogram,      
     "scatter": PROMPT_Scatter,
     "radar": PROMPT_Radar,

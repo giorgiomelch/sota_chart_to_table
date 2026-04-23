@@ -253,9 +253,9 @@ HEATMAP_SCHEMA = {
                     "properties": {
                         "x_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
                         "y_value": {"anyOf": [{"type": "string"}, {"type": "number"}]},
-                        "intensity_value": {"type": "number"}
+                        "cell_value": {"type": "number"}
                     },
-                    "required": ["x_value", "y_value", "intensity_value"]
+                    "required": ["x_value", "y_value"]
                 }
             }
         },
